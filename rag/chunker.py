@@ -1,4 +1,4 @@
-from rag.document_loader import Document
+from rag.document import Document
 
 
 class TextChunker:
@@ -12,6 +12,9 @@ class TextChunker:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
+        if chunk_overlap >= chunk_size:
+            raise ValueError("chunk_size must be greater than chunk_overlap")
+
     def chunk_documents(self, documents):
         """
         Chunking of documents
@@ -19,7 +22,7 @@ class TextChunker:
         all_chunks = []
         for document in documents:
             chunks = self.chunk_doc(document)
-            all_chunks.append(chunks)
+            all_chunks.extend(chunks)
         return all_chunks
 
     def chunk_doc(self, document):
@@ -30,30 +33,42 @@ class TextChunker:
         all_chunks = []
         text = document.text
         chunks = self.split(text, self.chunk_size, self.chunk_overlap)
-        for chunk in chunks:
-            doc = Document(metadata=document.metadata, text=chunk)
+        for chunk_index, chunk in enumerate(chunks):
+            metadata = document.metadata.copy()
+            metadata["chunk_data"] = chunk_index
+            chunk_doc = Document(metadata=metadata, text=chunk)
             # self.metadata = {"chunk_id": }
-            all_chunks.append(doc)
-        return chunks
+            all_chunks.append(chunk_doc)
+        return all_chunks
 
     def split(self, text, chunk_size, chunk_overlap):
         """
         Splits the document into the chunks, given the specifics
         """
         chunks = []
-        begin, end = 0, chunk_size
+        begin = 0  # , end = 0, chunk_size
 
-        while end <= len(text):
+        while begin <= len(text):
+            end = begin + chunk_size
             chunk = text[begin:end]
-            chunks.append(chunk)
 
-            begin = end - (chunk_overlap * chunk_size)
-            while text.charAt(begin) != " ":
-                begin -= 1
+            if chunk.strip():
+                chunks.append(chunk)
 
-            end = end + chunk_size
-            if end < len(text):
-                while text.charAt(end) != " ":
-                    end -= 1
+            if end >= len(text):
+                break
+
+            begin = end - chunk_overlap
+
+            # chunks.append(chunk)
+
+            # begin = end - (chunk_overlap - chunk_size)
+            # while text[begin] != " ":
+            # begin -= 1
+
+            # end = end + chunk_size
+            # if end < len(text):
+            #     while text[end] != " ":
+            #         end -= 1
 
         return chunks

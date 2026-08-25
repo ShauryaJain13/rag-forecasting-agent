@@ -7,20 +7,24 @@ class DocumentLoader:
     """
     This class loads the filepath and stores it as a document
     """
-    def __init__(self, filepath):
-        self.filepath = Path(filepath)
+    def __init__(self):  # , filepath):
+        # self.filepath = Path(filepath)
+        pass
 
     def load(self, filepath):
         """
         Loading filepath as document
         """
-        doc_type = filepath[-4:]
+        doc_type = Path(filepath).suffix.lower()  # filepath[-4:]
         if doc_type == ".pdf":
-            self.load_pdf(filepath)
+            pdf = self.load_pdf(filepath)
+            return pdf
         elif doc_type == ".txt":
-            self.load_txt(filepath)
+            txt = self.load_txt(filepath)
+            return txt
         elif doc_type == ".csv":
-            self.load_csv(filepath)
+            csv = self.load_csv(filepath)
+            return csv
         else:
             raise ValueError(f"Document type {doc_type} is unknown")
 
@@ -32,11 +36,14 @@ class DocumentLoader:
         If the document uploaded is a pdf, it reads and stores that
         """
         documents = []
-        pdf = PdfReader.read(filepath)
-        for page in range(len(pdf.pages)):
+        pdf = PdfReader(filepath)  # .read(filepath)
+        for page_number, page in enumerate(pdf.pages):
             text = page.extract_text()
-            doc = Document(metadata={"source": filepath,
-                                     "page": page},
+            if not text:
+                continue
+            doc = Document(metadata={"source": str(filepath),
+                                     "page": page_number + 1,
+                                     "type": "pdf"},
                            text=text)
             documents.append(doc)
         return documents
@@ -46,23 +53,25 @@ class DocumentLoader:
         If the document uploaded is a text file, it reads and stores that
         """
         text = None
-        with open(filepath) as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
 
-        doc = Document(metadata={"source": filepath,
-                                 "page": None}, text=text)
+        doc = Document(metadata={"source": str(filepath),
+                                 "page": None,
+                                 "type": "txt"}, text=text)
         return [doc]
 
     def load_csv(self, filepath):
         """
         If the document uploaded is a csv, it reads and stores that
         """
-        csv = pd.read_csv(filepath)
-        txt = self.load_txt(csv.to_csv('output.txt', sep='\t', index=False))
+        dataframe = pd.read_csv(filepath)
+        text = dataframe.to_csv(index=False)
         doc = Document(metadata={"source": filepath,
+                                 "page": None,
                                  "type": "dataset"},
-                       text=txt[0].text)
-        return doc
+                       text=text)
+        return [doc]
 
     # def load_markdown(self, filepath):
     #     """
@@ -77,6 +86,9 @@ class Document:
     def __init__(self, metadata, text):
         self.metadata = metadata
         self.text = text
+
+    def __repr__(self):
+        return f"Document(source: {self.metadata.get('source')})"
 
 # text -> whatever is in the document
 # metadata -> dictionary of source and page
