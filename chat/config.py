@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 from groq import Groq
+from FlagEmbedding import BGEM3FlagModel
 import os
 
 
@@ -13,6 +14,7 @@ class Configuration:
         load_dotenv()
         self.api_key = os.getenv('GROQ_API_KEY')
         self.model_name = os.getenv('MODEL')
+        self.embedding_model = os.getenv('EMBEDDING_MODEL')
         if not self.api_key:
             raise ValueError("API Key not found in env")
 
@@ -20,3 +22,4 @@ class Configuration:
             raise ValueError("Model not found in env")
 
         self.client = Groq(api_key=self.api_key)
+        self.embedding_model = BGEM3FlagModel

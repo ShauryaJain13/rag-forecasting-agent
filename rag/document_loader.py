@@ -58,10 +58,10 @@ class DocumentLoader:
         If the document uploaded is a csv, it reads and stores that
         """
         csv = pd.read_csv(filepath)
-        txt = csv.to_csv('output.txt', sep='\t', index=False)
+        txt = self.load_txt(csv.to_csv('output.txt', sep='\t', index=False))
         doc = Document(metadata={"source": filepath,
                                  "type": "dataset"},
-                       text=txt)
+                       text=txt[0].text)
         return doc
 
     # def load_markdown(self, filepath):
