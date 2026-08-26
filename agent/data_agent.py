@@ -45,6 +45,7 @@
 #     #     return summary
 
 from agent.base_agent import BaseAgent
+# import json
 
 
 class DataAgent(BaseAgent):
@@ -55,10 +56,19 @@ class DataAgent(BaseAgent):
     def __init__(self, llm, tools, prompt_builder, memory):
         super().__init__(name="data_agent", llm=llm, tools=tools,
                          prompt_builder=prompt_builder, memory=memory,
-                         system_prompt="You are responsible for understanding"
-                         "the data set. You conduct an analysis of the data,"
-                         "such as the columns, rows, statistical analysis,"
-                         "missing values and time-series characteristics")
+                         system_prompt="""
+You are the Data Agent.
+
+Load and inspect the dataset.
+
+1. Call read_csv to load the CSV.
+2. Call analyze_dataset after loading it.
+3. If the user specified a target column, pass that exact
+   column name to analyze_dataset.
+4. If no target was specified, let analyze_dataset determine it.
+5. Do not answer with JSON.
+6. After the tools finish, briefly confirm completion.
+""")
         # CHANGED: name was "Data Agent" (Title Case). state.completed_agents
         # stores whatever self.name is, but the Router's vocabulary and
         # Controller's agent dict use snake_case ("data_agent"). With the
@@ -71,5 +81,29 @@ class DataAgent(BaseAgent):
         This function runs the agent and updates the state as necessary
         """
         result = super().run(task, state)
+
+        # if isinstance(result, str):
+        #     try:
+        #         data_info = json.loads(result)
+
+        #         target = data_info.get("target_column")
+        #         date_column = data_info.get("date_column")
+
+        #         # Validate target against actual dataset
+        #         if target and target not in state.data.columns:
+        #             raise ValueError(
+        #                 f"Target column '{target}' not found in dataset."
+        #             )
+
+        #         state.target_column = target
+        #         state.date_column = date_column
+        #         state.data_summary = data_info.get("data_summary")
+
+        #     except json.JSONDecodeError:
+        #         state.add_error({
+        #             "agent": self.name,
+        #             "error": "DataAgent returned invalid JSON."
+        #         })
+
         state.mark_agent_complete(self.name)
         return result
