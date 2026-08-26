@@ -6,12 +6,13 @@ class Orchestrator:
     This class is the functionality behind the MAS. It orchestrates which data
     is passed to which agent, when it is passed, and what to do next
     """
-    def __init__(self, router, llm, prompt_builder, data_agent,
+    def __init__(self, router, llm, prompt_builder, data_agent, rag_agent,
                  forecasting_agent, anomaly_agent, max_iterations=10):
         self.router = router
         self.llm = llm
         self.prompt_builder = prompt_builder
         self.agents = {"data_agent": data_agent,
+                       "rag_agent": rag_agent,
                        "forecasting_agent": forecasting_agent,
                        "anomaly_agent": anomaly_agent}
         self.max_iterations = max_iterations
@@ -35,17 +36,6 @@ class Orchestrator:
                                  "error": f"routing failed: {e}"})
                 break
 
-            # CHANGED: this is the main fix. When the router decides the
-            # message doesn't need a specialist agent (greetings, thanks,
-            # general questions), it returns "direct_response" plus the
-            # actual text to send back. Previously there was no such
-            # option -- the router was forced to pick data_agent /
-            # forecasting_agent / anomaly_agent even for "hello", and
-            # is_task_complete() could never become true without both
-            # state.data and state.forecast being set, so the loop would
-            # burn through all max_iterations before falling through to
-            # generate_final_response() with an essentially empty state
-            # to summarize -- which is why you were seeing blank output.
             if decision["agent"] == "direct_response":
                 self.final_response = decision["response"]
                 return self.final_response
@@ -79,12 +69,7 @@ class Orchestrator:
     def is_task_complete(self, state):
         """
         Determine whether enough work has been completed
-        to produce a final answer.
-
-        NOTE: still requires both state.data and state.forecast, which is
-        correct for actual forecasting requests, but only reachable now
-        because direct_response gives conversational messages a proper
-        exit path that doesn't depend on this check at all.
+        to produce a final answer
         """
         if state.data is None or state.forecast is None:
             return False
