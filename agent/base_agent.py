@@ -14,7 +14,6 @@ class BaseAgent:
         self.tools = tools
         self.system_prompt = system_prompt
         self.prompt_builder = prompt_builder
-        # self.current_state = current_state
         self.memory = memory
         self.max_iterations = max_iterations
 

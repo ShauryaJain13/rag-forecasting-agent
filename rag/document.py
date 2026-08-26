@@ -7,15 +7,12 @@ class DocumentLoader:
     """
     This class loads the filepath and stores it as a document
     """
-    def __init__(self):  # , filepath):
-        # self.filepath = Path(filepath)
-        pass
 
     def load(self, filepath):
         """
         Loading filepath as document
         """
-        doc_type = Path(filepath).suffix.lower()  # filepath[-4:]
+        doc_type = Path(filepath).suffix.lower()
         if doc_type == ".pdf":
             pdf = self.load_pdf(filepath)
             return pdf
@@ -27,9 +24,6 @@ class DocumentLoader:
             return csv
         else:
             raise ValueError(f"Document type {doc_type} is unknown")
-
-        # doc = self.filepath.read_text(encoding='utf-8')
-        # return doc
 
     def load_pdf(self, filepath):
         """
@@ -72,11 +66,6 @@ class DocumentLoader:
                                  "type": "dataset"},
                        text=text)
         return [doc]
-
-    # def load_markdown(self, filepath):
-    #     """
-    #     If the document uploaded is a markdown, it reads and stores that
-    #     """
 
 
 class Document:

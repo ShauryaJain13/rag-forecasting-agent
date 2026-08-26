@@ -6,10 +6,8 @@ class DataAnalyzer:
 
     name = "analyze_dataset"
 
-    description = (
-        "Analyze the dataset structure and quality. "
-        "Provide the target column if specified by the user."
-    )
+    description = ("Analyze the dataset structure and quality. "
+                   "Provide the target column if specified by the user.")
 
     def __init__(self, state):
         self.state = state
@@ -37,9 +35,10 @@ class DataAnalyzer:
         }
 
     def execute(self, arguments):
-
+        """
+        Executes the tool call to analyze data
+        """
         data_frame = self.state.data
-
         if data_frame is None:
             raise ValueError("No dataset is currently loaded.")
 
@@ -47,43 +46,26 @@ class DataAnalyzer:
 
         # If the LLM/user specified a target, validate it.
         if target_column:
-
             if target_column not in data_frame.columns:
                 raise ValueError(
                     f"Target column '{target_column}' does not exist. "
-                    f"Available columns: {list(data_frame.columns)}"
-                )
-
+                    f"Available columns: {list(data_frame.columns)}")
             self.state.target_column = target_column
 
-        # Otherwise automatically select the target
-        # if there is exactly one numerical column.
         else:
-
             numerical_columns = data_frame.select_dtypes(
-                include="number"
-            ).columns.tolist()
+                include="number").columns.tolist()
 
             if len(numerical_columns) == 1:
                 self.state.target_column = numerical_columns[0]
 
-        summary = {
-            "rows": len(data_frame),
-            "columns": list(data_frame.columns),
-            "data_types": (
-                data_frame.dtypes.astype(str).to_dict()
-            ),
-            "missing_values": (
-                data_frame.isnull().sum().to_dict()
-            ),
-            "duplicated_rows": int(
-                data_frame.duplicated().sum()
-            )
-        }
+        summary = {"rows": len(data_frame),
+                   "columns": list(data_frame.columns),
+                   "data_types": (data_frame.dtypes.astype(str).to_dict()),
+                   "missing_values": (data_frame.isnull().sum().to_dict()),
+                   "duplicated_rows": int(data_frame.duplicated().sum())}
 
         self.state.data_summary = summary
 
-        return {
-            "summary": summary,
-            "target_column": self.state.target_column
-        }
+        return {"summary": summary,
+                "target_column": self.state.target_column}

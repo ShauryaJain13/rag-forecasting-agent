@@ -43,342 +43,114 @@ class Controller:
 
         self.max_steps = max_steps
 
-        # ---------------------------------------------------------
-        # Core LLM components
-        # ---------------------------------------------------------
-
         self.llm = LLMClient()
         self.prompt_builder = Prompt_Builder()
-
-        # ---------------------------------------------------------
-        # Tools whose state changes per user request
-        # ---------------------------------------------------------
+        self.router = Router(llm=self.llm, prompt_builder=self.prompt_builder)
 
         self.state_bound_tools = []
-
-        # ---------------------------------------------------------
-        # Build RAG system
-        # ---------------------------------------------------------
-
         self.knowledge_base_tool = self._build_rag()
-
-        # ---------------------------------------------------------
-        # Build specialist agents
-        # ---------------------------------------------------------
-
         self.agents = self._build_agents()
-
-        # ---------------------------------------------------------
-        # Build Router
-        # ---------------------------------------------------------
-
-        self.router = Router(
-            llm=self.llm,
-            prompt_builder=self.prompt_builder
-        )
-
-    # =============================================================
-    # RAG
-    # =============================================================
 
     def _build_rag(self):
         """
-        Builds the complete RAG system.
-
-        There are two separate paths:
-
-        INGESTION:
-
-            DocumentLoader
-                    ↓
-            TextChunker
-                    ↓
-              Embedder
-                    ↓
-              VectorStore
-
-        RETRIEVAL:
-
-            User query
-                    ↓
-                Embedder
-                    ↓
-              VectorStore
-                    ↓
-               Retriever
-                    ↓
-              RAGPipeline
-                    ↓
-           KnowledgeBaseTool
-                    ↓
-                RAGAgent
+        Builds the complete RAG system. It has two separate paths:
+        one which is for ingestion (adding document), and the other for
+        retrieving the information needed
         """
-
-        # ---------------------------------------------------------
-        # Shared embedding model
-        # ---------------------------------------------------------
-
         embedder = Embedder()
-
-        # ---------------------------------------------------------
-        # Vector storage
-        # ---------------------------------------------------------
-
         vector_store = VectorStore()
+        retriever = Retriever(embedder=embedder, vector_store=vector_store,
+                              top_k=5, minimum_threshold=0.6)
 
-        # ---------------------------------------------------------
-        # Retriever
-        # ---------------------------------------------------------
-
-        retriever = Retriever(
-            embedder=embedder,
-            vector_store=vector_store,
-            top_k=5,
-            minimum_threshold=0.6
-        )
-
-        # ---------------------------------------------------------
-        # Retrieval pipeline
-        # ---------------------------------------------------------
-
-        rag_pipeline = RAGPipeline(
-            retriever=retriever
-        )
-
-        # ---------------------------------------------------------
-        # Knowledge base ingestion system
-        # ---------------------------------------------------------
-
+        rag_pipeline = RAGPipeline(retriever=retriever)
         self.knowledge_base = KnowledgeBase(
             loader=DocumentLoader(),
-            chunker=TextChunker(
-                chunk_size=800,
-                chunk_overlap=100
-            ),
-            embedder=embedder,
-            vector_storage=vector_store
-        )
+            chunker=TextChunker(chunk_size=800, chunk_overlap=100),
+            embedder=embedder, vector_storage=vector_store)
 
-        # ---------------------------------------------------------
-        # Tool used by RAGAgent
-        # ---------------------------------------------------------
-
-        knowledge_base_tool = KnowledgeBaseTool(
-            rag_pipeline=rag_pipeline
-        )
+        knowledge_base_tool = KnowledgeBaseTool(rag_pipeline=rag_pipeline)
 
         return knowledge_base_tool
 
     def index_document(self, filepath):
         """
         Add a document to the knowledge base.
-
-        Example:
-
-            controller.index_document("holiday_effects.pdf")
         """
-
         return self.knowledge_base.index_file(filepath)
-
-    # =============================================================
-    # AGENTS
-    # =============================================================
 
     def _build_agents(self):
         """
         Construct all specialist agents.
         """
-
         agents = {}
 
-        # ---------------------------------------------------------
-        # DATA AGENT
-        # ---------------------------------------------------------
-
         data_tools = ToolRegistry()
-
         read_csv_tool = ReadCSV(state=None)
         data_analyzer_tool = DataAnalyzer(state=None)
-
         data_tools.register(read_csv_tool)
         data_tools.register(data_analyzer_tool)
-
-        self.state_bound_tools.extend(
-            [
-                read_csv_tool,
-                data_analyzer_tool
-            ]
-        )
-
-        agents["data_agent"] = DataAgent(
-            llm=self.llm,
-            tools=data_tools,
-            prompt_builder=self.prompt_builder,
-            memory=Memory()
-        )
-
-        # ---------------------------------------------------------
-        # ANOMALY AGENT
-        # ---------------------------------------------------------
+        self.state_bound_tools.extend([read_csv_tool, data_analyzer_tool])
+        agents["data_agent"] = DataAgent(llm=self.llm, tools=data_tools,
+                                         prompt_builder=self.prompt_builder,
+                                         memory=Memory())
 
         anomaly_tools = ToolRegistry()
-
-        anomaly_tool = AnomalyDetectionTool(
-            state=None
-        )
-
+        anomaly_tool = AnomalyDetectionTool(state=None)
         anomaly_tools.register(anomaly_tool)
+        self.state_bound_tools.append(anomaly_tool)
+        agents["anomaly_agent"] = AnomalyAgent(llm=self.llm,
+                                               tools=anomaly_tools,
+                                               prompt_builder=self.
+                                               prompt_builder,
+                                               memory=Memory())
 
-        self.state_bound_tools.append(
-            anomaly_tool
-        )
-
-        agents["anomaly_agent"] = AnomalyAgent(
-            llm=self.llm,
-            tools=anomaly_tools,
-            prompt_builder=self.prompt_builder,
-            memory=Memory()
-        )
-
-        # ---------------------------------------------------------
-        # FORECASTING AGENT
-        # ---------------------------------------------------------
-
-        agents["forecasting_agent"] = ForecastingAgent(
-            llm=self.llm,
-            tools=ToolRegistry(),
-            prompt_builder=self.prompt_builder,
-            memory=Memory()
-        )
-
-        # ---------------------------------------------------------
-        # RAG AGENT
-        # ---------------------------------------------------------
+        agents["forecasting_agent"] = ForecastingAgent(llm=self.llm,
+                                                       tools=ToolRegistry(),
+                                                       prompt_builder=self.
+                                                       prompt_builder,
+                                                       memory=Memory())
 
         agents["rag_agent"] = RAGAgent(
-            name="rag_agent",
-            llm=self.llm,
-            tools=ToolRegistry(),
-            system_prompt=(
-                "You retrieve relevant information from the "
-                "knowledge base to support data analysis and "
-                "forecasting."
-            ),
-            prompt_builder=self.prompt_builder,
-            memory=Memory(),
-            knowledge_base_tool=self.knowledge_base_tool
-        )
+            name="rag_agent", llm=self.llm, tools=ToolRegistry(),
+            system_prompt=("You retrieve relevant information from the "
+                           "knowledge base to support data analysis and "
+                           "forecasting."),
+            prompt_builder=self.prompt_builder, memory=Memory(),
+            knowledge_base_tool=self.knowledge_base_tool)
 
         return agents
-
-    # =============================================================
-    # MAIN EXECUTION
-    # =============================================================
 
     def run(self, state):
         """
         Execute the complete multi-agent workflow.
-
-        The workflow is:
-
-            User request
-                  ↓
-                Router
-                  ↓
-             Specialist
-                  ↓
-            AgentState
-                  ↓
-                Router
-                  ↓
-             Specialist
-                  ↓
-                 ...
-                  ↓
-           Workflow complete
-                  ↓
-          Final response LLM
         """
-
-        # ---------------------------------------------------------
-        # Bind all state-dependent tools to this request's state
-        # ---------------------------------------------------------
-
         for tool in self.state_bound_tools:
             tool.state = state
 
-        # ---------------------------------------------------------
-        # Reset agent memories for this request
-        # ---------------------------------------------------------
-
         for agent in self.agents.values():
-
             if agent.memory is not None:
                 agent.memory.clear_history()
 
-        # ---------------------------------------------------------
-        # Agent loop
-        # ---------------------------------------------------------
-
-        for step in range(self.max_steps):
-
-            decision = self.router.route(
-                state.user_request,
-                state
-            )
-
+        for _ in range(self.max_steps):
+            decision = self.router.route(state.user_request, state)
             agent_name = decision["agent"]
 
-            # -----------------------------------------------------
-            # Direct response
-            # -----------------------------------------------------
-
             if agent_name == "direct_response":
-
-                state.final_response = decision.get(
-                    "response",
-                    ""
-                )
-
+                state.final_response = decision.get("response", "")
                 state.current_agent = None
-
                 return state
-
-            # -----------------------------------------------------
-            # Validate selected agent
-            # -----------------------------------------------------
 
             if agent_name not in self.agents:
-
-                state.add_error(
-                    {
-                        "component": "controller",
-                        "error": (
-                            f"Unknown agent selected by router: "
-                            f"{agent_name}"
-                        )
-                    }
-                )
-
+                state.add_error({"component": "controller",
+                                 "error": (f"Unknown agent selected by"
+                                           "router: "f"{agent_name}")})
                 return state
 
-            # -----------------------------------------------------
-            # Execute agent
-            # -----------------------------------------------------
-
             agent = self.agents[agent_name]
-
-            task = decision.get(
-                "task",
-                ""
-            )
+            task = decision.get("task", "")
 
             try:
-
-                agent.run(
-                    task,
-                    state
-                )
+                agent.run(task, state)
                 print("\n===== DEBUG =====")
                 print("Agent executed:", agent_name)
                 print("Completed agents:", state.completed_agents)
@@ -389,13 +161,8 @@ class Controller:
                 print("=================\n")
 
             except Exception as e:
-
-                state.add_error(
-                    {
-                        "agent": agent_name,
-                        "error": str(e)
-                    }
-                )
+                state.add_error({"agent": agent_name,
+                                 "error": str(e)})
 
                 print("MAX STEPS REACHED")
                 print("Completed agents:", state.completed_agents)
@@ -404,133 +171,57 @@ class Controller:
                 print("Errors:", state.errors)
 
                 state.current_agent = None
-
                 return state
 
-            # -----------------------------------------------------
-            # Check whether workflow is complete
-            # -----------------------------------------------------
-
             if self._workflow_complete(state):
-
                 return self._generate_final_response(state)
 
-        # ---------------------------------------------------------
-        # Maximum number of steps reached
-        # ---------------------------------------------------------
-
-        state.add_error(
-            {
-                "component": "controller",
-                "error": (
-                    f"Maximum number of agent steps "
-                    f"({self.max_steps}) reached."
-                )
-            }
-        )
-
+        state.add_error({"component": "controller",
+                         "error": (f"Maximum number of agent steps "
+                                   f"({self.max_steps}) reached.")})
         return state
-
-    # =============================================================
-    # WORKFLOW COMPLETION
-    # =============================================================
 
     def _workflow_complete(self, state):
         """
         Determines whether the requested work has been completed.
-
         This prevents the Router from having to decide when the
         entire system is finished.
-
         The Controller knows what outputs actually exist in state.
         """
-
         request = state.user_request.lower()
-
-        # ---------------------------------------------------------
-        # Forecasting request
-        # ---------------------------------------------------------
-
         forecasting_requested = any(
             word in request
-            for word in [
-                "forecast",
-                "forecasting",
-                "predict",
-                "prediction",
-                "future"
-            ]
-        )
+            for word in ["forecast", "forecasting", "predict", "prediction",
+                         "future"])
 
         if forecasting_requested:
-
             return state.forecast is not None
 
-        # ---------------------------------------------------------
-        # Anomaly request
-        # ---------------------------------------------------------
-
-        anomaly_requested = any(
-            word in request
-            for word in [
-                "anomaly",
-                "anomalies",
-                "outlier",
-                "outliers"
-            ]
-        )
+        anomaly_requested = any(word in request
+                                for word in ["anomaly", "anomalies",
+                                             "outlier", "outliers"])
 
         if anomaly_requested:
+            return (state.anomaly_analysis is not None or
+                    len(state.anomalies) > 0)
 
-            return (
-                state.anomaly_analysis is not None
-                or len(state.anomalies) > 0
-            )
-
-        # ---------------------------------------------------------
-        # RAG-only request
-        # ---------------------------------------------------------
-
-        rag_requested = any(
-            word in request
-            for word in [
-                "documentation",
-                "document",
-                "knowledge base",
-                "according to",
-                "according"
-            ]
-        )
-
+        rag_requested = any(word in request for word in ["documentation",
+                                                         "document",
+                                                         "knowledge base",
+                                                         "according to",
+                                                         "according"])
         if rag_requested:
-
-            return (
-                len(state.retrieved_documents) > 0
-            )
-
-        # ---------------------------------------------------------
-        # No known specialist task
-        # ---------------------------------------------------------
-
+            return (len(state.retrieved_documents) > 0)
         return False
-
-    # =============================================================
-    # FINAL RESPONSE
-    # =============================================================
 
     def _generate_final_response(self, state):
         """
         Generates the final natural-language answer from the
-        completed AgentState.
-
-        The final LLM does NOT perform the analysis itself.
-
-        It simply turns the results produced by the specialist
+        completed AgentState. The final LLM does NOT perform the analysis
+        itself. It simply turns the results produced by the specialist
         agents into a useful response for the user.
         """
-
         context = state.to_dict()
-
         system_prompt = """
 You are the final response generator for a multi-agent
 forecasting copilot.
@@ -565,161 +256,64 @@ Answer the user's original question directly.
 
 Keep the response clear and reasonably concise.
 """
-
         final_memory = Memory()
-
         messages = self.prompt_builder.build_messages(
-            memory=final_memory,
-            system_prompt=system_prompt,
-            context={
-                "user_request": state.user_request,
-                "current_state": context
-            }
-        )
+            memory=final_memory, system_prompt=system_prompt,
+            context={"user_request": state.user_request,
+                     "current_state": context})
 
         try:
-
-            response = self.llm.generate(
-                messages,
-                tools=None
-            )
-
+            response = self.llm.generate(messages, tools=None)
             if response is None:
-
-                raise RuntimeError(
-                    "Final response LLM returned no response."
-                )
+                raise RuntimeError("Final response LLM returned no response.")
 
             state.final_response = response.content
-
             state.current_agent = None
-
             return state
 
         except Exception as e:
-
-            state.add_error(
-                {
-                    "component": "final_response",
-                    "error": str(e)
-                }
-            )
-
-            # -----------------------------------------------------
-            # Fallback
-            # -----------------------------------------------------
-
-            state.final_response = self._build_fallback_response(
-                state
-            )
-
+            state.add_error({"component": "final_response",
+                             "error": str(e)})
+            state.final_response = self._build_fallback_response(state)
             state.current_agent = None
-
             return state
-
-    # =============================================================
-    # FALLBACK RESPONSE
-    # =============================================================
 
     def _build_fallback_response(self, state):
         """
         Generates a basic response without making another LLM call.
-
         This is useful if the final response LLM hits a rate limit
         or otherwise fails.
         """
-
-        # ---------------------------------------------------------
-        # Forecast
-        # ---------------------------------------------------------
-
         if state.forecast is not None:
-
             response = "Forecast generated successfully."
-
             if state.target_column:
-
-                response += (
-                    f"\nTarget column: "
-                    f"{state.target_column}"
-                )
+                response += (f"\nTarget column: {state.target_column}")
 
             if state.selected_model:
-
-                response += (
-                    f"\nSelected model: "
-                    f"{state.selected_model}"
-                )
+                response += (f"\nSelected model: {state.selected_model}")
 
             if state.forecast_metrics:
+                response += (f"\nForecast metrics: {state.forecast_metrics}")
 
-                response += (
-                    f"\nForecast metrics: "
-                    f"{state.forecast_metrics}"
-                )
-
-            response += (
-                f"\n\nForecast:\n"
-                f"{state.forecast}"
-            )
-
+            response += (f"\n\nForecast:\n {state.forecast}")
             return response
-
-        # ---------------------------------------------------------
-        # Anomalies
-        # ---------------------------------------------------------
 
         if state.anomalies:
-
-            response = (
-                "Anomaly detection completed."
-            )
-
-            response += (
-                f"\n\nAnomalies:\n"
-                f"{state.anomalies}"
-            )
+            response = ("Anomaly detection completed.")
+            response += (f"\n\nAnomalies:\n {state.anomalies}")
 
             if state.anomaly_analysis:
-
-                response += (
-                    f"\n\nAnalysis:\n"
-                    f"{state.anomaly_analysis}"
-                )
-
+                response += (f"\n\nAnalysis:\n {state.anomaly_analysis}")
             return response
-
-        # ---------------------------------------------------------
-        # RAG
-        # ---------------------------------------------------------
 
         if state.rag_context:
-
-            response = (
-                "I found the following relevant information "
-                "in the knowledge base:\n\n"
-            )
-
+            response = ("I found the following relevant information "
+                        "in the knowledge base:\n\n")
             response += state.rag_context
-
             return response
 
-        # ---------------------------------------------------------
-        # Errors
-        # ---------------------------------------------------------
-
         if state.errors:
+            return ("I was unable to complete the requested task.\n\n"
+                    f"Errors:\n {state.errors}")
 
-            return (
-                "I was unable to complete the requested task.\n\n"
-                f"Errors:\n{state.errors}"
-            )
-
-        # ---------------------------------------------------------
-        # Generic fallback
-        # ---------------------------------------------------------
-
-        return (
-            "I was unable to generate a response for the "
-            "requested task."
-        )
+        return ("I was unable to generate a response for the requested task.")

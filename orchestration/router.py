@@ -129,7 +129,6 @@ Valid agents:
         Convert the LLM's response into a Python dictionary.
         """
         response = response.strip()
-
         if response.startswith("```"):
             response = response.replace("```json", "").replace("```", ""
                                                                ).strip()
@@ -154,9 +153,6 @@ Valid agents:
             raise ValueError(f"Router decision is missing fields: {missing}")
 
         valid_agents = set(self.available_agents.keys()) | {"direct_response"}
-        # CHANGED: "direct_response" is now a valid value alongside the
-        # three specialists, since the router can answer directly instead
-        # of always being forced to delegate.
 
         if decision["agent"] not in valid_agents:
             raise ValueError(f"Unknown agent: {decision['agent']}")
@@ -167,9 +163,6 @@ Valid agents:
         if not isinstance(decision["reason"], str):
             raise TypeError("Router reason must be a string.")
 
-        # CHANGED: when the router chooses direct_response, it must also
-        # supply the actual text to send back -- otherwise the orchestrator
-        # would have nothing to show the user.
         if decision["agent"] == "direct_response":
             if "response" not in decision:
                 raise ValueError(

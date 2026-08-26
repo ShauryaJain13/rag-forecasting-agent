@@ -21,13 +21,6 @@ class AnomalyDetectionTool:
     def schema(self):
         """
         Schema exposed to the LLM through the tool registry.
-
-        CHANGED: wrapped in {"type": "function", "function": {...}}.
-        Without this wrapper, this schema doesn't match the shape Groq's
-        API expects (it matches registry.Tool's wrapped format), so mixing
-        this tool into a ToolRegistry alongside properly-wrapped tools
-        (Calculator, ReadFile, ReadCSV) would cause a 400 validation error
-        the moment this tool got registered and sent to the LLM.
         """
         return {
             "type": "function",

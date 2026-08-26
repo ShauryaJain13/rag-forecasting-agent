@@ -4,17 +4,9 @@ import pandas as pd
 class ReadCSV:
     """
     Tool for loading a CSV file into the shared multi-agent state.
-
-    CHANGED: previously this class had no reference to shared state at all
-    -- it just returned the loaded DataFrame as a plain function return
-    value, which then got stringified into memory (str(result)) and lost.
-    Every other tool (AnomalyDetectionTool, DataAnalyzer, ForecastTool)
-    reads from self.state.data, so without this fix the pipeline could
-    never actually load a dataset for anyone else to use.
     """
 
     name = "read_csv"
-
     description = ("Load a CSV file from disk into the shared dataset. "
                    "The loaded data becomes available to all other agents "
                    "as state.data.")
@@ -24,8 +16,7 @@ class ReadCSV:
 
     def schema(self):
         """
-        CHANGED: wrapped in the {"type": "function", "function": {...}}
-        structure Groq's Chat Completions API requires for every tool.
+        Returns the schema of the tool
         """
         return {
             "type": "function",
@@ -61,9 +52,5 @@ class ReadCSV:
         except Exception as e:
             return f"Error reading file: {e}"
 
-        self.state.data = data  # CHANGED: the actual fix -- write into
-                                  # shared state so DataAnalyzer,
-                                  # AnomalyDetectionTool, and
-                                  # ForecastingAgent can see it
-
+        self.state.data = data
         return {"rows": len(data), "columns": list(data.columns)}

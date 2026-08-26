@@ -5,6 +5,7 @@ class AgentState:
 
     def __init__(self, user_request):
         self.user_request = user_request
+
         self.data = None
         self.data_summary = None
         self.target_column = None
@@ -12,10 +13,6 @@ class AgentState:
 
         self.forecast = None
         self.forecast_metrics = None
-        # CHANGED: added -- ForecastingAgent sets state.selected_model,
-        # but it was never initialized here nor included in to_dict(),
-        # so the Router/final-response generator could never see which
-        # model was actually used.
         self.selected_model = None
 
         self.anomalies = []
@@ -81,7 +78,6 @@ class AgentState:
 
                 "forecast": self.forecast,
                 "forecast_metrics": self.forecast_metrics,
-                # CHANGED: added, see __init__ note above.
                 "selected_model": self.selected_model,
 
                 "anomalies": self.anomalies,

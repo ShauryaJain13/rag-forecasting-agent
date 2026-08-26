@@ -73,7 +73,6 @@ class Orchestrator:
         """
         if state.data is None or state.forecast is None:
             return False
-
         return True
 
     def generate_final_response(self, task, state):
@@ -81,12 +80,9 @@ class Orchestrator:
         Generate the final response to the user using
         the information accumulated in shared state.
         """
-
         context = state.to_dict()
-
         messages = self.prompt_builder.build_messages(
-            memory=[],
-            system_prompt=(
+            memory=[], system_prompt=(
                 "You are the final response generator for "
                 "a data forecasting system. Use the results "
                 "contained in the shared state to answer "
