@@ -25,3 +25,6 @@ Thumbs.db
 outputs/
 
 test_forecasting.py
+
+rainfall_data.csv
+rainfall_dynamics.pdf

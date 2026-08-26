@@ -347,30 +347,40 @@ class Controller:
 
     def run(self, state):
         """
-        Execute the multi-agent workflow.
+        Execute the multi-agent workflow until the Router determines
+        that the task is complete.
         """
 
-        # CHANGED: point every state-bound tool at *this* request's
-        # AgentState (see _build_agents docstring), and give every agent
-        # a clean scratch memory for this new user turn -- otherwise
-        # agent.memory keeps accumulating messages from unrelated past
-        # requests forever, since agents are built once in __init__ but
-        # app.py builds a fresh AgentState per turn.
+        # Bind state-dependent tools to this request
         for tool in self.state_bound_tools:
             tool.state = state
 
+        # Reset agent memories for this request
         for agent in self.agents.values():
             if agent.memory is not None:
                 agent.memory.clear_history()
 
-        for _ in range(self.max_steps):
+        for step in range(self.max_steps):
 
-            decision = self.router.route(
-                state.user_request,
-                state
-            )
+            try:
+                decision = self.router.route(
+                    state.user_request,
+                    state
+                )
+
+            except Exception as e:
+                state.add_error({
+                    "component": "router",
+                    "error": str(e)
+                })
+                return state
 
             agent_name = decision["agent"]
+            task = decision.get("task", "")
+
+            # -------------------------
+            # DIRECT RESPONSE
+            # -------------------------
 
             if agent_name == "direct_response":
 
@@ -383,50 +393,67 @@ class Controller:
 
                 return state
 
+            # -------------------------
+            # INVALID AGENT
+            # -------------------------
+
             if agent_name not in self.agents:
 
-                state.add_error(
-                    {"component": "controller",
-                     "error": f"Unknown agent: {agent_name}"}
-                )
+                state.add_error({
+                    "component": "controller",
+                    "error": f"Unknown agent: {agent_name}"
+                })
 
                 return state
 
             agent = self.agents[agent_name]
 
-            # CHANGED: the router's "task" field (the specific
-            # instruction it crafted for this step) was computed and
-            # then thrown away. It's now actually passed to the agent.
-            task = decision.get("task", "")
+            # -------------------------
+            # RUN AGENT
+            # -------------------------
 
             try:
-                # CHANGED: was `state = agent.run(state)`.
-                #   (a) missing the `task` argument -- every agent's
-                #       run() is (task, state), so this was a guaranteed
-                #       TypeError the first time any agent ran.
-                #   (b) reassigning `state` from the return value is
-                #       wrong: DataAgent/AnomalyAgent/ForecastingAgent
-                #       return their final text answer (a string), not
-                #       the state object, so `state` would be clobbered
-                #       with plain text after the first agent call, and
-                #       every later state.xxx access would then
-                #       AttributeError. Agents mutate `state` in place,
-                #       so the return value isn't needed here at all.
                 agent.run(task, state)
+
             except Exception as e:
 
-                state.add_error(
-                    {"agent": agent_name, "error": str(e)}
-                )
+                state.add_error({
+                    "agent": agent_name,
+                    "error": str(e)
+                })
 
                 state.current_agent = None
 
                 return state
 
-        state.add_error(
-            {"component": "controller",
-             "error": (f"Maximum number of agent steps ({self.max_steps}) "
-                       "reached.")}
-        )
+            # -------------------------
+            # CHECK AGENT RESULT
+            # -------------------------
+
+            if agent_name not in state.completed_agents:
+
+                state.add_error({
+                    "agent": agent_name,
+                    "error": (
+                        f"{agent_name} returned without marking "
+                        "itself as complete."
+                    )
+                })
+
+                state.current_agent = None
+
+                return state
+
+        # -------------------------
+        # MAX STEPS
+        # -------------------------
+
+        state.add_error({
+            "component": "controller",
+            "error": (
+                f"Maximum number of agent steps "
+                f"({self.max_steps}) reached."
+            )
+        })
 
         return state
