@@ -11,7 +11,7 @@ class LLMClient:
         self.client = config.client
         self.model = config.model_name
 
-    def _send_request(self, messages, tools=None):
+    def _send_request(self, messages, tools=[]):  # None):
         """
         This function creates a connection between the LLM model and the user
         """
@@ -26,7 +26,7 @@ class LLMClient:
         """
         return response.choices[0].message
 
-    def generate(self, messages, tools=None):
+    def generate(self, messages, tools=[]):  # None):
         """
         This function is to generate a response from the LLM to the user's
         prompt

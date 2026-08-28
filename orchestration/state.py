@@ -11,6 +11,7 @@ class AgentState:
         self.target_column = None
         self.date_column = None
         self.forecast_covariates = []
+        self.covariates = []
 
         self.forecast = None
         self.forecast_metrics = None
@@ -77,7 +78,9 @@ class AgentState:
                 "data_summary": self.data_summary,
                 "target_column": self.target_column,
                 "date_column": self.date_column,
+
                 "forecast_covariates": self.forecast_covariates,
+                "covariates": self.covariates,
 
                 "forecast": self.forecast,
                 "forecast_metrics": self.forecast_metrics,

@@ -61,7 +61,7 @@ class DocumentLoader:
         """
         dataframe = pd.read_csv(filepath)
         text = dataframe.to_csv(index=False)
-        doc = Document(metadata={"source": filepath,
+        doc = Document(metadata={"source": str(filepath),
                                  "page": None,
                                  "type": "dataset"},
                        text=text)

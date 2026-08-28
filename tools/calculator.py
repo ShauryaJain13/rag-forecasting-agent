@@ -37,6 +37,9 @@ class Calculator:
             raise ValueError("An 'expression' is required.")
 
         try:
-            return eval(expression)
+            #     return eval(expression)
+            # except Exception as e:
+            #     return f"Error evaluating expression: {e}"
+            return eval(expression, {"__builtins__": {}}, {})
         except Exception as e:
             return f"Error evaluating expression: {e}"

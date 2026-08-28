@@ -1,3 +1,4 @@
+import pandas as pd
 from agent.base_agent import BaseAgent
 from forecasting.evaluation import best_model_walk_forward
 from forecasting.models import NaiveModel, HoltWinters, XGBoost, SARIMAModel
@@ -117,9 +118,13 @@ Return:
         train_size = int(0.8 * len(data))
         horizon = state.forecast_horizon
 
-        best_result, results = best_model_walk_forward(models, data,
-                                                       covariates, train_size,
-                                                       horizon)
+        best_result, results, failures = best_model_walk_forward(
+            models, data, covariates, train_size, horizon)
+
+        if failures:
+            state.add_warning({"component": "forecasting_agent",
+                               "warning": ("Some models could not be evaluated"
+                                           f"and were skipped: {failures}")})
 
         return best_result, results
 
@@ -133,22 +138,31 @@ Return:
         # return prediction
         model = result["model_class"]()
 
-        if result["model"] == "XGBoost":
-            model.fit(data, covariates=covariates)
-            prediction = model.predict(horizon, covariates=covariates)
-        else:
-            model.fit(data)
-            prediction = model.predict(horizon)
+        future_covariates = None
+        if covariates is not None:
+            future_covariates = self._get_future_covariates(
+                covariates, horizon, state)
+
+        model.fit(data, covariates=covariates)
+        prediction = model.predict(horizon, covariates=future_covariates)
 
         return prediction
+
+        # if result["model"] == "xgboost":
+        #     model.fit(data, covariates=covariates)
+        #     prediction = model.predict(horizon, covariates=covariates)
+        # else:
+        #     model.fit(data)
+        #     prediction = model.predict(horizon)
+
+        # return prediction
 
     def _get_potential_models(self, summary):
         """
         Return the forecasting model classes available
         to the agent.
         """
-        models = [NaiveModel, HoltWinters, XGBoost, SARIMAModel]
-        return models
+        return [NaiveModel, HoltWinters, XGBoost, SARIMAModel]
 
     def _get_series(self, state):
         """
@@ -176,18 +190,38 @@ Return:
         """
         data = state.data
         target = state.target_column
-
-        covariates = state.covariates
-
+        covariates = state.forecast_covariates
         if not covariates:
             return None
 
-        valid_covariates = [
-            column for column in covariates
-            if column in data.columns and column != target
-        ]
+        valid_covariates = [column for column in covariates
+                            if column in data.columns and column != target]
 
         if not valid_covariates:
             return None
-
         return data[valid_covariates]
+
+    def _get_future_covariates(self, covariates, horizon, state):
+        """
+        Build the covariate values to use during prediction.
+
+        The system does not yet collect explicit future covariate
+        values from the user, so this falls back to repeating the last
+        observed row for the entire forecast horizon. This is a real
+        modeling assumption, not a neutral default -- it assumes
+        covariates stay constant into the future, which will be wrong
+        for anything that isn't (e.g. a promo flag, a holiday
+        indicator). Recorded as a warning so the final response can
+        tell the user this happened.
+        """
+        last_row = covariates.iloc[[-1]]
+        future = pd.concat([last_row] * horizon, ignore_index=True)
+
+        state.add_warning({
+            "component": "forecasting_agent",
+            "warning": ("Future covariate values were not provided; "
+                        "the forecast assumes covariates stay constant "
+                        "at their last observed values for the entire "
+                        "forecast horizon.")})
+
+        return future

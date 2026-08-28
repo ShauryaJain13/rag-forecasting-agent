@@ -194,18 +194,20 @@ class Controller:
             for word in ["forecast", "forecasting", "predict", "prediction",
                          "future"])
 
-        if forecasting_requested:
-            return state.forecast is not None
+        # if forecasting_requested:
+        #     return state.forecast is not None
 
         anomaly_requested = any(word in request
                                 for word in ["anomaly", "anomalies",
                                              "outlier", "outliers"])
 
-        if anomaly_requested:
-            return (state.anomaly_analysis is not None or
-                    len(state.anomalies) > 0)
+        # if anomaly_requested:
+        #     return (state.anomaly_analysis is not None or
+        #             len(state.anomalies) > 0)
 
         rag_requested = any(word in request for word in ["documentation",
+                                                         "given",
+                                                         "resources",
                                                          "as per",
                                                          "with reference",
                                                          "referring to",
@@ -213,9 +215,22 @@ class Controller:
                                                          "knowledge base",
                                                          "according to",
                                                          "according"])
-        if rag_requested:
-            return (len(state.retrieved_documents) > 0)
-        return False
+        # if rag_requested:
+        #     return (len(state.retrieved_documents) > 0)
+        # return False
+        if not (forecasting_requested or anomaly_requested or rag_requested):
+            return False
+
+        if forecasting_requested and state.forecast is None:
+            return False
+
+        if anomaly_requested and not (
+                state.anomaly_analysis is not None
+                or len(state.anomalies) > 0):
+            return False
+
+        if rag_requested and len(state.retrieved_documents) == 0:
+            return False
 
     def _generate_final_response(self, state):
         """
