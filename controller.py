@@ -206,6 +206,9 @@ class Controller:
                     len(state.anomalies) > 0)
 
         rag_requested = any(word in request for word in ["documentation",
+                                                         "as per",
+                                                         "with reference",
+                                                         "referring to",
                                                          "document",
                                                          "knowledge base",
                                                          "according to",
