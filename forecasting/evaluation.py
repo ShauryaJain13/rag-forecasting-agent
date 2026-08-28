@@ -77,7 +77,7 @@ def evaluate_walk_forward(model_class, series, covariates, train_size, horizon,
 
 
 def best_model_walk_forward(model_classes, series, covariates, train_size,
-                            horizon, step):
+                            horizon, step=None):
     """
     Evaluate multiple forecasting models using
     walk-forward validation and select the best one.

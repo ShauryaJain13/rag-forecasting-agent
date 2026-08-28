@@ -27,6 +27,7 @@ class AgentState:
 
         self.final_response = None
         self.errors = []
+        self.warnings = []
 
         self.retrieved_documents = []
         self.retrieval_query = None
@@ -38,6 +39,13 @@ class AgentState:
         Adds the error to the current state
         """
         self.errors.append(error)
+
+    def add_warning(self, warning):
+        """
+        Adds a warning to the current state- a place where the system
+        made an assumption rather than failed
+        """
+        self.warnings.append(warning)
 
     def mark_agent_complete(self, agent):
         """
@@ -95,6 +103,7 @@ class AgentState:
                 "agent_plan": self.agent_plan,
 
                 "errors": self.errors,
+                "warnings": self.warnings,
 
                 "retrieved_documents": self.retrieved_documents,
                 "retrieval_query": self.retrieval_query,
