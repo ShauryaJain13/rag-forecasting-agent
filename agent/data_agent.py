@@ -1512,4 +1512,3 @@ class DataAgent(BaseAgent):
 
         horizon = max(1, round(requested_days / interval_days))
         state.forecast_horizon = horizon
-        
