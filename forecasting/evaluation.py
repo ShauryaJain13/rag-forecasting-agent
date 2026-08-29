@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def mae(actual, predicted):
@@ -26,10 +27,35 @@ def mape(actual, predicted):
 
 
 def walk_forward_validation(model_class, series, covariates, train_size,
-                            horizon, step):
+                            horizon, step, covariate_mode="persistant"):
     """
     Perform walk-forward validation for one model.
     """
+    # results = []
+    # train_end = train_size
+
+    # while train_end + horizon <= len(series):
+    #     train = series.iloc[:train_end]
+    #     test = series.iloc[train_end:train_end + horizon]
+
+    #     if covariates is not None:
+    #         train_covariates = covariates.iloc[:train_end]
+    #         test_covariates = covariates.iloc[train_end:train_end + horizon]
+    #     else:
+    #         train_covariates = None
+    #         test_covariates = None
+
+    #     model = model_class()
+    #     model.fit(train, covariates=train_covariates)
+    #     predictions = model.predict(horizon, covariates=test_covariates)
+
+    #     mod_mae = mae(test, predictions)
+    #     mod_mape = mape(test, predictions)
+    #     results.append({"MAE": mod_mae,
+    #                     "MAPE": mod_mape})
+    #     train_end += step
+
+    # return results
     results = []
     train_end = train_size
 
@@ -39,7 +65,14 @@ def walk_forward_validation(model_class, series, covariates, train_size,
 
         if covariates is not None:
             train_covariates = covariates.iloc[:train_end]
-            test_covariates = covariates.iloc[train_end:train_end + horizon]
+
+            if covariate_mode == "known":
+                test_covariates = covariates.iloc[
+                    train_end:train_end + horizon]
+            else:
+                last_row = train_covariates.iloc[[-1]]
+                test_covariates = pd.concat([last_row] * horizon,
+                                            ignore_index=True)
         else:
             train_covariates = None
             test_covariates = None
@@ -50,20 +83,23 @@ def walk_forward_validation(model_class, series, covariates, train_size,
 
         mod_mae = mae(test, predictions)
         mod_mape = mape(test, predictions)
+
         results.append({"MAE": mod_mae,
                         "MAPE": mod_mape})
+
         train_end += step
 
     return results
 
 
 def evaluate_walk_forward(model_class, series, covariates, train_size, horizon,
-                          step):
+                          step, covariate_mode="persistant"):
     """
     Evaluate one model using walk-forward validation.
     """
     fold_results = walk_forward_validation(model_class, series, covariates,
-                                           train_size, horizon, step)
+                                           train_size, horizon, step,
+                                           covariate_mode)
     if not fold_results:
         raise ValueError("No walk-forward validation folds were created.")
 
@@ -77,7 +113,7 @@ def evaluate_walk_forward(model_class, series, covariates, train_size, horizon,
 
 
 def best_model_walk_forward(model_classes, series, covariates, train_size,
-                            horizon, step=None):
+                            horizon, step=None, covariate_mode="persistant"):
     """
     Evaluate multiple forecasting models using
     walk-forward validation and select the best one.
@@ -91,7 +127,8 @@ def best_model_walk_forward(model_classes, series, covariates, train_size,
     for model_class in model_classes:
         try:
             result = evaluate_walk_forward(model_class, series, covariates,
-                                           train_size, horizon, step)
+                                           train_size, horizon, step,
+                                           covariate_mode)
             result["model_class"] = model_class
             results.append(result)
         except Exception as e:

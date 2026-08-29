@@ -10,8 +10,12 @@ class AgentState:
         self.data_summary = None
         self.target_column = None
         self.date_column = None
+        self.data_frequency = None
+        self.seasonal_period = None
+
         self.forecast_covariates = []
         self.covariates = []
+        self.ignore_columns = []
 
         self.forecast = None
         self.forecast_metrics = None
@@ -85,10 +89,14 @@ class AgentState:
                 "data": self._data_preview(),
                 "data_summary": self.data_summary,
                 "target_column": self.target_column,
+
                 "date_column": self.date_column,
+                "data_frequency": self.data_frequency,
+                "seasonal_period": self.seasonal_period,
 
                 "forecast_covariates": self.forecast_covariates,
                 "covariates": self.covariates,
+                "ignore_columns": self.ignore_columns,
 
                 "forecast": self.forecast,
                 "forecast_metrics": self.forecast_metrics,
