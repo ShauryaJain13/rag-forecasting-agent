@@ -62,11 +62,6 @@ class Agent:
         """
         tool_name = call.function.name
         arguments = self._parse_arguments(call.function.arguments)
-        # tool = self.tools.get(tool_name)
-        # if tool is None:
-        #     raise ValueError(f"Unknown tool requested: {tool_name}")
-        # result = tool.execute(parameters)
-        # return result
         return self._execute_tool_call(tool_name, arguments)
 
     def _parse_arguments(self, arguments):

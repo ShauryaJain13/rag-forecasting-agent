@@ -107,9 +107,6 @@ class XGBoost:
         predictions = []
 
         for step in range(horizon):
-            # features = np.array(history[-self.lags:]).reshape(1, -1)
-            # prediction = self.model.predict(features)[0]
-
             lag_values = np.array(history[-self.lags:])
             row = {f"lag_{i}": lag_values[-i] for i in range(1, self.lags + 1)}
 
@@ -125,10 +122,6 @@ class XGBoost:
 
             features = pd.DataFrame([row])
 
-            # features = pd.DataFrame([lag_values], columns=[f"lag_{i}"
-            #                                                for i in
-            #                                                range(1, self.lags
-            #                                                      + 1)])
             prediction = self.model.predict(features)[0]
             predictions.append(prediction)
             history.append(prediction)

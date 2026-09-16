@@ -4,7 +4,7 @@ class RAGPromptBuilder:
     """
 
     def __init__(self):
-        pass  # self.prompt = []
+        pass
 
     def build(self, query, results):
         """
@@ -47,14 +47,4 @@ CONTEXT:
 USER QUESTION:
 {query}
 """
-
-
-#             context_parts.append({"text": document.text, "source": source})
-
-#         prompt = f"""
-# SYSTEM PROMPT: Answer using the provided context:
-
-# context: {context}
-# USER QUESTION: {query}
-# """
         return prompt

@@ -13,17 +13,3 @@ class KnowledgeBaseTool:
         """
 
         return self.rag_pipeline.retrieve(query)
-
-        # results = self.retriever.retrieve(query)
-        # sources = []
-        # for result in results:
-
-        #     document = result["document"]
-        #     sources.append({"source": document.metadata.get("source"),
-        #                     "page": document.metadata.get("page"),
-        #                     "score": result["score"]})
-
-        # return {"documents": results,
-        #         "sources": sources}
-
-        # return result

@@ -18,13 +18,10 @@ class VectorStore:
             raise ValueError("Number of document chunks must match number of"
                              "vectors")
 
-        # try:
         for document, embedding in zip(documents, embeddings):
             self.document_storage.append(document)
             self.vector_storage.append(embedding)
         return True
-        # except Exception as e:
-        # raise RuntimeError(f"An exception {str(e)} was experienced")
 
     def search(self, query_embedding, top_k):
         """
